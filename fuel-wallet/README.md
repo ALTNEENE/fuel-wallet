@@ -1,52 +1,58 @@
-# Fuel Wallet Backend
+<div dir="rtl" align="right">
 
-Prepaid fuel wallet backend built with **Node.js**, **Express 5**, **TypeScript (pure ESM)**, **Prisma 7** (`@prisma/adapter-pg`), **PostgreSQL**, and **Clerk** (`@clerk/express`).
+# ⛽ محفظة الوقود الرقمية — الخادم الخلفي (Fuel Wallet Backend)
+
+واجهة برمجة التطبيقات الخلفية لمنصة **محفظة الوقود الرقمية** المبنية باستخدام **Node.js**، **Express 5**، **TypeScript (ESM)**، **Prisma 7** (`@prisma/adapter-pg`)، **PostgreSQL**، **Clerk** (`@clerk/express`)، وتوثيق **Swagger UI** التفاعلي.
 
 ---
 
-## Quick Start
+## 🚀 التشغيل السريع (Quick Start)
 
 ```bash
-# 1. Install dependencies
+# 1. تثبيت الحزم
 npm install
 
-# 2. Configure environment variables
+# 2. إعداد المتغيرات البيئية
 cp .env.example .env
 
-# 3. Apply database migrations & seed initial data
+# 3. تطبيق هجرات قاعدة البيانات وزراعة البيانات الأولية
 npm run db:deploy
 npm run db:seed
 npm run db:verify
 
-# 4. Reset demo data (optional, non-production only)
+# 4. إعادة ضبط بيانات العرض التوضيحي (لبيئة التطوير فقط)
 npm run demo:reset
 
-# 5. Run development server, production build, or test suite
+# 5. تشغيل خادم التطوير أو البناء للإنتاج أو تشغيل الاختبارات
 npm run dev
 npm run build && npm start
 npm test
 ```
 
-Interactive HTTP requests for all endpoints are available in [`api.http`](./api.http) (VS Code REST Client) using a `@token` variable.
+---
+
+## 📖 توثيق الواجهة البرمجية (Swagger / OpenAPI 3.0)
+
+عند تشغيل الخادم (`npm run dev` أو `npm start`)، يتوفر توثيق Swagger التفاعلي على الروابط التالية:
+
+- **واجهة Swagger UI التفاعلية**: `http://localhost:3000/api-docs`
+- **مواصفات OpenAPI JSON**: `http://localhost:3000/api-docs.json`
+- كما تتوفر جميع الطلبات التجريبية في ملف [`api.http`](./api.http) لاستخدامها مع إضافة VS Code REST Client.
 
 ---
 
-## Promoting Users (`ADMIN` and `OPERATOR`)
+## 🔐 ترقية المستخدمين (`ADMIN` و `OPERATOR`)
 
-New users authenticate via Clerk and are automatically provisioned on their first API request with `role = 'DRIVER'` and `status = 'ACTIVE'`.
+يتم تسجيل المستخدمين الجدد تلقائياً عند أول طلب بدور `DRIVER` وحالة `ACTIVE`.
 
-### 1. Promote a user to `ADMIN`
-Run the following SQL against PostgreSQL using the user's Clerk User ID (`user_...`) or internal UUID:
-
+### 1. ترقية مستخدم إلى مدير نظام (`ADMIN`)
 ```sql
 UPDATE "users"
 SET "role" = 'ADMIN'
 WHERE "clerk_user_id" = 'user_2xYourClerkUserIdHere';
 ```
 
-### 2. Promote a user to Station `OPERATOR`
-Assign `role = 'OPERATOR'` and link the user to their station via `operator_station_id`:
-
+### 2. ترقية مستخدم إلى مشغل محطة (`OPERATOR`)
 ```sql
 UPDATE "users"
 SET
@@ -58,57 +64,32 @@ SET
   )
 WHERE "clerk_user_id" = 'user_2xOperatorClerkUserIdHere';
 ```
+*(ملاحظة: في حال تعيين `role = 'OPERATOR'` وترك `operator_station_id` فارغاً `NULL`، يقوم النظام تلقائياً بإسناد المشغل إلى أول محطة نشطة مع إمكانية تبديل المحطة من لوحة المشغل).*
 
-### 3. Freeze or Unfreeze a User
-Via the Admin API:
-- `PATCH /api/admin/users/:id` with `{ "status": "FROZEN" }` or `{ "status": "ACTIVE" }`
-
-Or directly in SQL:
-```sql
-UPDATE "users"
-SET "status" = 'FROZEN'
-WHERE "id" = '<user-uuid>';
-```
+### 3. تجميد أو تنشيط مستخدم (`FROZEN` / `ACTIVE`)
+عبر نقطة النهاية الخاصة بالإدارة:
+- `PATCH /api/admin/users/:id` مع الجسم `{ "status": "FROZEN" }` أو `{ "status": "ACTIVE" }`.
 
 ---
 
-## Demo Flow (End-to-End Walkthrough)
+## 🎯 سيناريو العرض التوضيحي (Demo flow)
 
-Before starting a live demonstration, reset the database state (`TRUNCATE ledger_entries, transactions RESTART IDENTITY`, remove `USER_STATION` wallets, zero all wallet balances, and set `bank_gateway_status = "UP"`):
+قبل بدء العرض التوضيحي، قم بإعادة ضبط قاعدة البيانات:
 
 ```bash
 npm run demo:reset
 ```
 
-Then walk through the competition scenario:
+خطوات العرض التوضيحي الكامل:
 
-1. **Top-Up (`POST /api/topups`)**
-   - Top up `30,000` SDG into the driver's `USER_MAIN` wallet (`Idempotency-Key: demo-topup-1`).
-   - Result: `201 Created`, `status: "COMPLETED"`, `USER_MAIN` balance = `30,000`, `BANK_SIM` balance = `-30,000`.
-2. **Pick Station (`GET /api/stations`)**
-   - List active fuel stations (e.g. **Station A — محطة الأمل** and **Station B — محطة السلام**).
-   - Each station shows `myStationBalance: 0`, `mainBalance: 30000`, `availableHere: 30000`.
-3. **Transfer Main -> Station A (`POST /api/transfers`)**
-   - Move `20,000` SDG from `USER_MAIN` to `{ "type": "STATION", "stationId": "<stationAId>" }`.
-   - Result: `USER_MAIN` balance = `10,000`, `Station A` user wallet balance = `20,000`.
-4. **Pay at Station A (`POST /api/payments`)**
-   - Pay `12,000` SDG at **Station A** using the driver's Station A wallet.
-   - Result: `201 Created` with a 6-digit `verificationCode` (verifiable by Station A's operator via `GET /api/operator/payments/lookup?code=...`), leaving `8,000` SDG in the driver's Station A wallet and crediting `+12,000` SDG to Station A's `STATION_REVENUE` wallet.
-5. **Transfer Station A -> Station B (`POST /api/transfers`)**
-   - Reallocate the remaining `8,000` SDG from the driver's Station A wallet to `{ "type": "STATION", "stationId": "<stationBId>" }`.
-   - Result: driver's Station A wallet = `0`, driver's Station B wallet = `8,000`.
-6. **Pay at Station B (`POST /api/payments`)**
-   - Pay `5,000` SDG at **Station B** using the driver's Station B wallet.
-   - Result: `201 Created` with a 6-digit `verificationCode`, leaving `3,000` SDG in the driver's Station B wallet and crediting `+5,000` SDG to Station B's `STATION_REVENUE` wallet.
-7. **History & Statements (`GET /api/transactions` & `GET /api/wallets/:id/ledger`)**
-   - Inspect cursor-paginated transaction history (`reference`, `type`, `status`, `from`, `to`, `verificationCode`) and double-entry wallet ledger statements (`delta`, `balanceAfter`, `reference`).
-8. **Bank `DOWN` Resilience (`POST /api/admin/bank-status`)**
-   - Switch bank gateway to `DOWN`: `POST /api/admin/bank-status { "status": "DOWN" }`.
-   - **Top-Up fails gracefully**: `POST /api/topups { "amount": 5000 }` returns `503 BANK_UNAVAILABLE`, records a `FAILED` transaction row (`failureCode: "BANK_UNAVAILABLE"`), writes **zero** ledger entries, and leaves balances unchanged.
-   - **Wallet Payments & Transfers still work**: Paying `3,000` SDG at **Station B** (`POST /api/payments`) succeeds with `201 Created` (leaving `0` at Station B and `+8,000` in Station B revenue) because wallet-to-station settlements operate purely on the internal double-entry ledger without external bank dependency.
-9. **Reconcile (`GET /api/admin/reconcile`)**
-   - Run the admin reconciliation check: returns `{ "ok": true, "issues": [] }`, confirming:
-     - Every wallet's `balance` equals `SUM(delta)` of its `ledger_entries`.
-     - Every `COMPLETED` transaction has exactly 2 ledger entries summing to `0`.
-     - Every `FAILED` / `PENDING` transaction has `0` ledger entries.
-     - The sum of all wallet balances across the entire system equals `0`.
+1. **تغذية الرصيد (`POST /api/topups`)**: شحن `30,000` ج.س في المحفظة الرئيسية (`USER_MAIN`).
+2. **اختيار المحطة (`GET /api/stations`)**: استعراض المحطات النشطة والرصيد المتاح في كل محطة.
+3. **تحويل من الرئيسية إلى المحطة أ (`POST /api/transfers`)**: تحويل `20,000` ج.س إلى محفظة المحطة أ (`USER_STATION`).
+4. **الدفع في المحطة أ (`POST /api/payments`)**: دفع `12,000` ج.س في المحطة أ والحصول على رمز التحقق السداسي (`verificationCode`).
+5. **تحويل من المحطة أ إلى المحطة ب (`POST /api/transfers`)**: تحويل الرصيد المتبقي `8,000` ج.س من المحطة أ إلى المحطة ب مباشرةً.
+6. **الدفع في المحطة ب (`POST /api/payments`)**: دفع `5,000` ج.س في المحطة ب.
+7. **السجل وكشف الحساب (`GET /api/transactions` و `GET /api/wallets/:id/ledger`)**: استعراض العمليات وقيود القيد المزدوج.
+8. **اختبار توقف البنك (`POST /api/admin/bank-status`)**: تحويل حالة البنك إلى `DOWN` — تفشل عملية الشحن `TOPUP` بـ `503 BANK_UNAVAILABLE` بينما تستمر عمليات الدفع `PAYMENT` والتحويل `TRANSFER` بالعمل بنجاح تام.
+9. **المطابقة المحاسبية (`GET /api/admin/reconcile`)**: التحقق من سلامة دفتر الأستاذ العام (`ok: true, issues: []`).
+
+</div>

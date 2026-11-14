@@ -2,7 +2,9 @@ import path from 'node:path';
 import { clerkMiddleware } from '@clerk/express';
 import express, { type Express, type Request, type Response } from 'express';
 import helmet from 'helmet';
+import swaggerUi from 'swagger-ui-express';
 import { prisma } from './db/prisma.js';
+import { openApiSpec } from './docs/swagger.js';
 import { AppError } from './errors/app-error.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { apiRateLimiter } from './middleware/rate-limit.js';
@@ -19,10 +21,31 @@ export function createApp(): Express {
     typeof v === 'bigint' ? Number(v) : bigIntReplacer(_k, v),
   );
 
-  app.use(helmet());
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+    }),
+  );
   app.use(express.json({ limit: '10kb' }));
   app.use(clerkMiddleware());
   app.use(express.static(path.join(process.cwd(), 'public')));
+
+  // Swagger / OpenAPI 3.0 Interactive Documentation & Raw Spec
+  app.get('/api-docs.json', (_req: Request, res: Response) => {
+    res.status(200).json(openApiSpec);
+  });
+
+  app.use(
+    '/api-docs',
+    swaggerUi.serve,
+    swaggerUi.setup(openApiSpec, {
+      customSiteTitle: 'Fuel Wallet API Docs — توثيق محفظة الوقود الرقمية',
+      swaggerOptions: {
+        persistAuthorization: true,
+        docExpansion: 'list',
+      },
+    }),
+  );
 
   app.get('/health', async (_req: Request, res: Response) => {
     await prisma.$queryRaw`SELECT 1`;
