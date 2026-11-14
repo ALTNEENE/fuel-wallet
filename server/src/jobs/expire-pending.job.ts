@@ -1,6 +1,7 @@
 import { env } from '../config/env.js';
 import { prisma } from '../db/prisma.js';
 import { ERROR_CATALOG } from '../errors/catalog.js';
+import { logger } from '../utils/logger.js';
 
 let expireInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -22,7 +23,15 @@ export async function expirePendingTransactions(
       AND "created_at" < NOW() - (${timeoutSeconds} * INTERVAL '1 second')
   `;
 
-  return Number(affected);
+  const count = Number(affected);
+  if (count > 0) {
+    logger.warn('ExpirePendingJob', `Expired ${count} stale PENDING transaction(s)`, {
+      expiredCount: count,
+      timeoutSeconds,
+    });
+  }
+
+  return count;
 }
 
 /**
@@ -35,9 +44,16 @@ export function startExpirePendingJob(
     return expireInterval;
   }
 
+  logger.info('ExpirePendingJob', 'Started periodic pending-transaction expiration job', {
+    intervalMs,
+    timeoutSeconds: env.PENDING_TIMEOUT_SECONDS,
+  });
+
   expireInterval = setInterval(() => {
     void expirePendingTransactions().catch((err) => {
-      console.error('Error expiring pending transactions:', err);
+      logger.error('ExpirePendingJob', 'Error expiring pending transactions', {
+        error: err,
+      });
     });
   }, intervalMs);
 
@@ -52,5 +68,6 @@ export function stopExpirePendingJob(): void {
   if (expireInterval) {
     clearInterval(expireInterval);
     expireInterval = null;
+    logger.info('ExpirePendingJob', 'Stopped periodic pending-transaction expiration job');
   }
 }

@@ -3,6 +3,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { prisma } from '../db/prisma.js';
 import { AppError } from '../errors/app-error.js';
 import { Prisma, type User } from '../generated/prisma/client.js';
+import { logger } from '../utils/logger.js';
 
 export interface ClerkProfileInfo {
   fullName: string | null;
@@ -23,8 +24,10 @@ export async function fetchClerkProfile(clerkUserId: string): Promise<ClerkProfi
       .trim();
     const fullName = clerkUser.fullName?.trim() || joinedName || null;
     const primaryPhone =
-      clerkUser.phoneNumbers?.find((p) => p.id === clerkUser.primaryPhoneNumberId) ??
-      clerkUser.phoneNumbers?.[0];
+      clerkUser.phoneNumbers?.find(
+        (p: { id?: string; phoneNumber?: string }) =>
+          p.id === clerkUser.primaryPhoneNumberId,
+      ) ?? clerkUser.phoneNumbers?.[0];
     const phone = primaryPhone?.phoneNumber ?? null;
     return { fullName, phone };
   } catch {
@@ -67,6 +70,11 @@ export async function ensureUserByClerkId(
           phone,
         },
         select: { id: true, role: true, status: true, operatorStationId: true },
+      });
+      logger.info('Auth', 'Provisioned new user and USER_MAIN wallet', {
+        userId: user.id,
+        clerkUserId,
+        role: user.role,
       });
     } catch (err) {
       if (isUniqueConstraintError(err)) {

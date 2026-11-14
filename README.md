@@ -62,7 +62,7 @@
 
 ## التقنيات المستخدمة (Tech Stack)
 
-### أولاً: الواجهة الخلفية (`Backend — /fuel-wallet`)
+### أولاً: الواجهة الخلفية (`Backend — /server`)
 - **بيئة التشغيل**: Node.js (`>=20.19.0`) + TypeScript (`ESM`)
 - **إطار العمل**: Express 5
 - **قاعدة البيانات و ORM**: PostgreSQL (Neon) + Prisma ORM (`7.10.1` مع `@prisma/adapter-pg`)
@@ -88,7 +88,7 @@
 ```text
 Fuel/
 ├── README.md                     # التوثيق الرئيسي للمشروع باللغة العربية (RTL)
-├── fuel-wallet/                  # الواجهة الخلفية (Backend API)
+├── server/                  # الواجهة الخلفية (Backend API)
 │   ├── prisma/                   # مخطط قاعدة البيانات (schema.prisma)، الهجرات، والبيانات الأولية (seed.ts)
 │   ├── scripts/                  # سكربتات التحقق وإعادة ضبط العرض (demo-reset.ts, verify-db.ts)
 │   ├── src/
@@ -124,10 +124,10 @@ Fuel/
 
 ## طريقة التشغيل والإعداد السريع
 
-### 1- إعداد وتشغيل الواجهة الخلفية (`fuel-wallet`)
+### 1- إعداد وتشغيل الواجهة الخلفية (`server`)
 
 ```bash
-cd fuel-wallet
+cd server
 
 # تثبيت الحزم
 npm install
@@ -235,7 +235,7 @@ WHERE "clerk_user_id" = 'user_2xOperatorClerkUserIdHere';
 لإعادة ضبط البيانات قبل بدء العرض التوضيحي المباشر (تصفير الأرصدة والعمليات وإعادة حالة البنك إلى `UP`):
 
 ```bash
-cd fuel-wallet
+cd server
 npm run demo:reset
 ```
 
@@ -271,8 +271,8 @@ npm run demo:reset
 للتحقق من البناء، سلامة الأنواع (TypeScript)، وتشغيل حزمة الاختبارات الشاملة:
 
 ```bash
-# في مجلد الواجهة الخلفية (fuel-wallet)
-cd fuel-wallet
+# في مجلد الواجهة الخلفية (server)
+cd server
 npm run typecheck
 npm run build
 npm test

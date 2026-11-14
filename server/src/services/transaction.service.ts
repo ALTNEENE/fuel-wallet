@@ -13,6 +13,7 @@ import {
   transactionRepository,
 } from '../repositories/transaction.repository.js';
 import { requestHash } from '../utils/hash.js';
+import { logger } from '../utils/logger.js';
 import { ledgerService } from './ledger.service.js';
 
 export interface ResolvedTransaction {
@@ -51,6 +52,7 @@ export abstract class TransactionService<TInput = unknown> {
     key: string,
   ): Promise<TransactionDto> {
     const userId = typeof user === 'string' ? user : user.id;
+    const txnType = this.type();
 
     if (typeof user === 'object' && user.status === 'FROZEN') {
       throw new AppError('ACCOUNT_FROZEN');
@@ -70,18 +72,25 @@ export abstract class TransactionService<TInput = unknown> {
     }
 
     const hash = requestHash({
-      type: this.type(),
+      type: txnType,
       fromWalletId: resolved.fromWalletId,
       toWalletId: resolved.toWalletId,
       amount: resolved.amount,
     });
 
     if (existing) {
+      logger.info('TransactionService', `Idempotent replay for ${txnType}`, {
+        type: txnType,
+        txnId: existing.id,
+        userId,
+        idempotencyKey: key,
+        status: existing.status,
+      });
       return transactionRepository.replay(existing, hash);
     }
 
     const { txn, isNew } = await transactionRepository.begin({
-      type: this.type(),
+      type: txnType,
       userId,
       fromWalletId: resolved.fromWalletId,
       toWalletId: resolved.toWalletId,
@@ -91,8 +100,25 @@ export abstract class TransactionService<TInput = unknown> {
     });
 
     if (!isNew) {
+      logger.info('TransactionService', `Concurrent idempotent replay for ${txnType}`, {
+        type: txnType,
+        txnId: txn.id,
+        userId,
+        idempotencyKey: key,
+        status: txn.status,
+      });
       return transactionRepository.replay(txn, hash);
     }
+
+    logger.info('TransactionService', `Began PENDING ${txnType} transaction`, {
+      type: txnType,
+      txnId: txn.id,
+      userId,
+      fromWalletId: resolved.fromWalletId,
+      toWalletId: resolved.toWalletId,
+      amount: resolved.amount,
+      idempotencyKey: key,
+    });
 
     try {
       await this.externalStep(txn, dto);
@@ -119,12 +145,33 @@ export abstract class TransactionService<TInput = unknown> {
         },
       );
 
-      return transactionRepository.toDto(completed);
+      const completedDto = transactionRepository.toDto(completed);
+      logger.info('TransactionService', `Completed ${txnType} transaction`, {
+        type: txnType,
+        txnId: completedDto.id,
+        reference: completedDto.reference,
+        userId,
+        amount: completedDto.amount,
+        fromBalanceAfter: completedDto.fromBalanceAfter,
+        toBalanceAfter: completedDto.toBalanceAfter,
+      });
+
+      return completedDto;
     } catch (err) {
       const code = err instanceof AppError ? String(err.code) : 'INTERNAL';
       const reason =
         err instanceof Error ? err.message : ERROR_CATALOG.INTERNAL.message;
       await transactionRepository.fail(txn.id, code, reason);
+
+      logger.warn('TransactionService', `Failed ${txnType} transaction (${code})`, {
+        type: txnType,
+        txnId: txn.id,
+        userId,
+        amount: resolved.amount,
+        failureCode: code,
+        reason,
+      });
+
       throw err;
     }
   }

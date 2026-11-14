@@ -3,7 +3,7 @@ import { QueryClient } from '@tanstack/react-query';
 /**
  * Centralized TanStack React Query Client.
  *
- * React Query Concept Explanation (for Vanilla JS Developers):
+ * React Query Concept Explanation  
  * Instead of writing manual `useEffect` + `fetch` + `isLoading` + `error` state in every component,
  * React Query caches server responses by a structured "Query Key" (e.g. `['me']` or `['stations']`).
  * When a mutation (like a Top-Up, Payment, or Transfer) succeeds, we call

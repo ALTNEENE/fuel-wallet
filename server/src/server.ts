@@ -5,22 +5,32 @@ import {
   startExpirePendingJob,
   stopExpirePendingJob,
 } from './jobs/expire-pending.job.js';
+import { logger } from './utils/logger.js';
 
 startExpirePendingJob();
 
 const server = app.listen(env.PORT, () => {
-  console.log(`Fuel Wallet server listening on http://localhost:${env.PORT} (${env.NODE_ENV})`);
+  logger.info('Server', `Fuel Wallet server listening on http://localhost:${env.PORT}`, {
+    port: env.PORT,
+    env: env.NODE_ENV,
+    swaggerDocs: `http://localhost:${env.PORT}/api-docs`,
+  });
 });
 
 async function shutdown(signal: string): Promise<void> {
-  console.log(`Received ${signal}. Shutting down gracefully...`);
+  logger.info('Server', `Received ${signal}. Shutting down gracefully...`, {
+    signal,
+  });
   stopExpirePendingJob();
   server.close(async () => {
     try {
       await prisma.$disconnect();
+      logger.info('Server', 'Prisma client disconnected cleanly.');
       process.exit(0);
     } catch (err) {
-      console.error('Error disconnecting Prisma client:', err);
+      logger.error('Server', 'Error disconnecting Prisma client', {
+        error: err,
+      });
       process.exit(1);
     }
   });

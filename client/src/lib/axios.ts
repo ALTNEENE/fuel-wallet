@@ -5,7 +5,7 @@ import type { ApiErrorEnvelope } from '../types/api.types.js';
 /**
  * Centralized Axios HTTP Client & Clerk Session Token Bridge.
  *
- * React & API Concept Explanation (for Vanilla JS Developers):
+ * React & API Concept Explanation  
  * Instead of calling `fetch()` manually in every component and repeating base URLs,
  * headers, and error parsing, we create one shared `apiClient` instance.
  *

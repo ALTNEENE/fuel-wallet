@@ -8,6 +8,7 @@ import { openApiSpec } from './docs/swagger.js';
 import { AppError } from './errors/app-error.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { apiRateLimiter } from './middleware/rate-limit.js';
+import { requestLogger } from './middleware/request-logger.js';
 import { apiRouter } from './routes/index.js';
 import { bigIntReplacer } from './utils/serialize.js';
 
@@ -27,6 +28,7 @@ export function createApp(): Express {
     }),
   );
   app.use(express.json({ limit: '10kb' }));
+  app.use(requestLogger);
   app.use(clerkMiddleware());
   app.use(express.static(path.join(process.cwd(), 'public')));
 

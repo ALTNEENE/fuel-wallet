@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { AppError } from '../errors/app-error.js';
 import { ERROR_CATALOG } from '../errors/catalog.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * Global Express error-handling middleware.
@@ -11,11 +12,20 @@ import { ERROR_CATALOG } from '../errors/catalog.js';
  */
 export function errorHandler(
   err: unknown,
-  _req: Request,
+  req: Request,
   res: Response,
   _next: NextFunction,
 ): void {
   if (err instanceof AppError) {
+    logger.warn('ErrorHandler', `AppError ${err.code} (${err.httpStatus}): ${err.message}`, {
+      code: err.code,
+      httpStatus: err.httpStatus,
+      method: req.method,
+      path: req.originalUrl,
+      ...(req.user?.id ? { userId: req.user.id } : {}),
+      ...(err.details !== undefined ? { details: err.details } : {}),
+    });
+
     res.status(err.httpStatus).json({
       error: {
         code: err.code,
@@ -35,6 +45,13 @@ export function errorHandler(
       .map((d) => (d.field ? `${d.field}: ${d.message}` : d.message))
       .join('، ');
 
+    logger.warn('ErrorHandler', `ValidationError (400) on ${req.method} ${req.originalUrl}`, {
+      method: req.method,
+      path: req.originalUrl,
+      ...(req.user?.id ? { userId: req.user.id } : {}),
+      details,
+    });
+
     res.status(ERROR_CATALOG.VALIDATION_ERROR.httpStatus).json({
       error: {
         code: 'VALIDATION_ERROR',
@@ -47,7 +64,13 @@ export function errorHandler(
     return;
   }
 
-  console.error('Unhandled error:', err);
+  logger.error('ErrorHandler', `Unhandled internal error on ${req.method} ${req.originalUrl}`, {
+    method: req.method,
+    path: req.originalUrl,
+    ...(req.user?.id ? { userId: req.user.id } : {}),
+    error: err,
+  });
+
   res.status(ERROR_CATALOG.INTERNAL.httpStatus).json({
     error: {
       code: 'INTERNAL',

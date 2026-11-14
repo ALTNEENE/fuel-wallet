@@ -1,6 +1,7 @@
 import { env } from '../config/env.js';
 import { prisma } from '../db/prisma.js';
 import { AppError } from '../errors/app-error.js';
+import { logger } from '../utils/logger.js';
 
 export type BankGatewayStatus = 'UP' | 'DOWN';
 
@@ -38,7 +39,7 @@ export class BankSimulatorService {
    * Simulates charging the external bank: waits `BANK_LATENCY_MS` (default 400ms)
    * and throws `BANK_UNAVAILABLE` (503) if the gateway is `'DOWN'`.
    */
-  async charge(_userId: string, _amount: bigint): Promise<void> {
+  async charge(userId: string, amount: bigint): Promise<void> {
     if (env.BANK_LATENCY_MS > 0) {
       await new Promise<void>((resolve) =>
         setTimeout(resolve, env.BANK_LATENCY_MS),
@@ -47,8 +48,19 @@ export class BankSimulatorService {
 
     const up = await this.isUp();
     if (!up) {
+      logger.warn('BankSimulator', 'Bank charge rejected because gateway is DOWN', {
+        userId,
+        amount,
+        status: 'DOWN',
+      });
       throw new AppError('BANK_UNAVAILABLE');
     }
+
+    logger.info('BankSimulator', 'Bank gateway charge authorized', {
+      userId,
+      amount,
+      latencyMs: env.BANK_LATENCY_MS,
+    });
   }
 
   /**
@@ -59,6 +71,10 @@ export class BankSimulatorService {
       where: { key: BANK_STATUS_SETTING_KEY },
       update: { value: status },
       create: { key: BANK_STATUS_SETTING_KEY, value: status },
+    });
+
+    logger.info('BankSimulator', `Bank gateway status switched to ${status}`, {
+      status,
     });
 
     return { status };

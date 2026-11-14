@@ -7,7 +7,7 @@ import {
 } from 'react';
 
 /**
- * React Concept Explanation (for Vanilla JS Developers):
+ * React Concept Explanation  
  *
  * The application is locked to Light Mode (`'light'`).
  * `useEffect` guarantees that the `dark` class is always removed from `<html>`
