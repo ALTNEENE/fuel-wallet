@@ -17,6 +17,10 @@ export const openApiSpec = {
   },
   servers: [
     {
+      url: 'https://fuel-wallet.onrender.com',
+      description: 'Production Server on Render (خادم الإنتاج)',
+    },
+    {
       url: 'http://localhost:3000',
       description: 'Local Development Server (خادم التطوير المحلي)',
     },

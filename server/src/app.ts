@@ -6,6 +6,7 @@ import swaggerUi from 'swagger-ui-express';
 import { prisma } from './db/prisma.js';
 import { openApiSpec } from './docs/swagger.js';
 import { AppError } from './errors/app-error.js';
+import { corsMiddleware } from './middleware/cors.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { apiRateLimiter } from './middleware/rate-limit.js';
 import { requestLogger } from './middleware/request-logger.js';
@@ -18,13 +19,20 @@ import { bigIntReplacer } from './utils/serialize.js';
 export function createApp(): Express {
   const app = express();
 
+  // Trust first proxy hop (e.g. Render / reverse proxy) so rate limiters read real client IP
+  app.set('trust proxy', 1);
+
   app.set('json replacer', (_k: string, v: unknown) =>
     typeof v === 'bigint' ? Number(v) : bigIntReplacer(_k, v),
   );
 
+  // Mount CORS middleware first so OPTIONS preflight requests succeed before auth/rate-limiting
+  app.use(corsMiddleware);
+
   app.use(
     helmet({
       contentSecurityPolicy: false,
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
     }),
   );
   app.use(express.json({ limit: '10kb' }));
