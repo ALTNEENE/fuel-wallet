@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from 'express';
 
 const DEFAULT_ALLOWED_ORIGINS = [
   'https://fuel-wallet-three.vercel.app',
+  'fuel-wallet-frontend.onrender.com',
   'http://localhost:5173',
   'http://localhost:3000',
 ];
